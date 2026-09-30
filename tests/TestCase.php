@@ -1,10 +1,9 @@
 <?php
 
-namespace VendorName\Skeleton\Tests;
+namespace Aesis\Maintenance\Tests;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Aesis\Maintenance\MaintenanceServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
-use VendorName\Skeleton\SkeletonServiceProvider;
 
 class TestCase extends Orchestra
 {
@@ -12,15 +11,15 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
-        Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'VendorName\\Skeleton\\Database\\Factories\\'.class_basename($modelName).'Factory'
-        );
+        $migration = require __DIR__.'/../database/migrations/create_maintenance_windows_table.php.stub';
+        $migration->up();
+
     }
 
     protected function getPackageProviders($app)
     {
         return [
-            SkeletonServiceProvider::class,
+            MaintenanceServiceProvider::class,
         ];
     }
 
@@ -28,10 +27,13 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
-        /*
-         foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
-            (include $migration->getRealPath())->up();
-         }
-         */
+        config()->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]);
+        config()->set('maintenance.state_path', sys_get_temp_dir().'/laravel-maintenance-tests/state.json');
+        config()->set('maintenance.flag_path', sys_get_temp_dir().'/laravel-maintenance-tests/maintenance.flag');
     }
 }

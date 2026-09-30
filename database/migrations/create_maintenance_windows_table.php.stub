@@ -1,0 +1,50 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $tableName = (string) config('maintenance.table', 'operations__maintenance_windows');
+        $lockTableName = (string) config('maintenance.lock_table', 'operations__maintenance_window_locks');
+
+        Schema::create($tableName, function (Blueprint $table): void {
+            $table->id();
+            $table->string('name', 160)->default('Плановые работы');
+            $table->dateTimeTz('announcement_at')->nullable();
+            $table->dateTimeTz('drain_starts_at');
+            $table->dateTimeTz('maintenance_starts_at');
+            $table->dateTimeTz('expected_end_at');
+            $table->string('status', 20)->default('scheduled')->index();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->timestampsTz();
+            $table->index(['status', 'drain_starts_at']);
+        });
+
+        Schema::create($lockTableName, function (Blueprint $table): void {
+            $table->unsignedTinyInteger('id')->primary();
+        });
+        DB::table($lockTableName)->insert(['id' => 1]);
+
+        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+            $constraint = (string) preg_replace('/[^a-zA-Z0-9_]/', '_', $tableName).'_no_overlap';
+            $grammar = Schema::getConnection()->getQueryGrammar();
+
+            DB::statement(
+                'ALTER TABLE '.$grammar->wrapTable($tableName).' ADD CONSTRAINT '.$grammar->wrap($constraint).' '
+                ."EXCLUDE USING gist (tstzrange(drain_starts_at, expected_end_at, '[)') WITH &&) "
+                ."WHERE (status IN ('scheduled', 'draining', 'started'))",
+            );
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists((string) config('maintenance.lock_table', 'operations__maintenance_window_locks'));
+        Schema::dropIfExists((string) config('maintenance.table', 'operations__maintenance_windows'));
+    }
+};

@@ -1,103 +1,54 @@
-# :package_description
+# Laravel Maintenance
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-[![GitHub Tests Action Status](https://github.com/spatie/package-skeleton-laravel/actions/workflows/run-tests.yml/badge.svg)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://github.com/spatie/package-skeleton-laravel/actions/workflows/fix-php-code-style-issues.yml/badge.svg)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-<!--delete-->
----
-This repo can be used to scaffold a Laravel package. Follow these steps to get started:
-
-1. Press the "Use this template" button at the top of this repo to create a new repo with the contents of this skeleton.
-2. Run "php ./configure.php" to run a script that will replace all placeholders throughout all the files.
-
-   To run it unattended — from a script, or by handing it to a coding agent — pass `--no-interaction`
-   (`-n`) and the answers as options. It never prompts, and exits non-zero with a message naming any
-   option it still needs:
-
-   ```bash
-   php ./configure.php -n --vendor-name="Spatie" --package-name="laravel-ray"
-   ```
-
-   Run "php ./configure.php --help" for the full list of options.
-3. Have fun creating your package.
-4. If you need help creating a package, consider picking up our <a href="https://laravelpackage.training">Laravel Package Training</a> video course.
----
-<!--/delete-->
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
-
-## Support us
-
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/:package_name.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/:package_name)
-
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+`curly-deni/laravel-maintenance` provides scheduled maintenance windows, a file-backed runtime state, middleware for draining new work, and Artisan commands for operating maintenance windows.
 
 ## Installation
 
-You can install the package via composer:
-
 ```bash
-composer require :vendor_slug/:package_slug
-```
-
-You can publish and run the migrations with:
-
-```bash
-php artisan vendor:publish --tag=":package_slug-migrations"
+composer require curly-deni/laravel-maintenance
+php artisan vendor:publish --tag=laravel-maintenance-migrations
 php artisan migrate
 ```
 
-You can publish the config file with:
+The migration creates `operations__maintenance_windows` and an internal lock table used to serialize window saves. The optional `created_by` column is an unsigned ID without a foreign key so the package does not depend on an application's user table.
+
+Publish the configuration to customize the maintenance table name and runtime state locations. The `table` setting is used by both the Eloquent model and the migration stub; set it before running the migration and keep it (along with `lock_table`) unchanged for rollbacks.
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-config"
-```
-
-This is the contents of the published config file:
-
-```php
-return [
-];
-```
-
-Optionally, you can publish the views using
-
-```bash
-php artisan vendor:publish --tag=":package_slug-views"
+php artisan vendor:publish --tag=laravel-maintenance-config
 ```
 
 ## Usage
 
-```php
-$:variable = new VendorName\Skeleton();
-echo $:variable->echoPhrase('Hello, VendorName!');
+The package registers these commands:
+
+```bash
+php artisan maintenance:status
+php artisan maintenance:status --json
+php artisan maintenance:sync-state
+php artisan maintenance:cancel {window}
+php artisan maintenance:complete {window}
 ```
 
-## Testing
+Apply the `maintenance.new-work` middleware alias to routes that should reject new operations while a window is draining. The package updates the runtime state file when `maintenance:sync-state` runs and broadcasts `Aesis\Maintenance\Events\MaintenanceAvailabilityChanged` when the public state changes.
+
+The current runtime state can be read without querying the database:
+
+```php
+use Aesis\Maintenance\Facades\Maintenance;
+
+$phase = Maintenance::phase();
+$state = Maintenance::payload();
+```
+
+## Development
 
 ```bash
 composer test
+composer analyse
+composer format
 ```
-
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
-
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
-## Credits
-
-- [:author_name](https://github.com/:author_username)
-- [All Contributors](../../contributors)
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+MIT. See [LICENSE.md](LICENSE.md).
